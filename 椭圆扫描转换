@@ -1,0 +1,127 @@
+#include<iostream>
+#include<cstdio>
+#include<GL\glut.h>
+#include <queue>
+using namespace std;
+//优先队列保存某条扫描线上的x值
+priority_queue<float, vector<float>, greater<float> >s;
+void init(void)
+{
+	glClearColor(1.0, 1.0, 1.0, 0.0);  //清空当前区域所有颜色
+	glMatrixMode(GL_PROJECTION);       //接下来要做投影工作
+	gluOrtho2D(0.0, 500, 0.0, 500);    //左下角为初始坐标 且横坐标为0-500 纵坐标为0-500
+}
+//新内容
+struct XET
+{
+	float xmin, ymax, ymin, dx;
+}pNET[1024];
+//N个顶点的坐标
+struct node
+{
+	float x, y;
+}point[1024];
+//画图
+void drawColor(float a, float b, int y)
+{
+	int x;
+	for (x = a + 0.5; x <= b + 0.5; x++)
+		glVertex2f(x, y);
+}//从A到B进行画线
+void DrawPolygon(float x0, float y0)
+{
+	//i,j为for循环用到的，t为pNET[]数组的下标
+	int i, j, t = 0, N;
+	//min_y为所有顶点y坐标的最小值，max_y为所有顶点y坐标的最大值
+	int min_y = 0x3fffffff, max_y = -1;
+	printf("请输入顶点数N=:");
+	cin >> N;
+	printf("请按逆时针输入N个顶点的坐标（用空格分开）\n");
+	for (i = 0; i < N; i++)
+	{
+		scanf_s("%f %f", &point[i].x, &point[i].y);
+		point[i].x += x0; point[i].y += y0;
+		//查找所有顶点y坐标的最值
+		if (point[i].y > max_y)
+			max_y = point[i].y;
+		if (point[i].y < min_y)
+			min_y = point[i].y;
+	}
+	for (i = min_y; i <= max_y; i++)
+	{
+		for (j = 0; j < N; j++)
+		{
+			if (point[j].y == i)
+			{
+				//按逆时针，某顶点的前一个顶点
+				if (point[(j - 1 + N) % N].y > point[j].y)
+				{
+					struct XET p;
+					p.xmin = point[j].x;
+					p.ymax = point[(j - 1 + N) % N].y;
+					p.ymin = point[j].y;
+					p.dx = (point[(j - 1 + N) % N].x - point[j].x) / (point[(j - 1 + N) % N].y - point[j].y);
+					//判断是否为局部最值
+					if (point[(j + 1 + N) % N].y <= point[j].y)
+						p.ymin++;
+					pNET[t++] = p;
+				}
+				//按逆时针，某顶点的后一个顶点
+				if (point[(j + 1 + N) % N].y > point[j].y)
+				{
+					struct XET p;
+					p.xmin = point[j].x;
+					p.ymax = point[(j + 1 + N) % N].y;
+					p.ymin = point[j].y;
+					p.dx = (point[(j + 1 + N) % N].x - point[j].x) / (point[(j + 1 + N) % N].y - point[j].y);
+					//判断是否为局部最值
+					if (point[(j - 1 + N) % N].y <= point[j].y)
+						p.ymin++;
+					pNET[t++] = p;
+				}
+			}
+		}
+	}
+	//所有扫描线进行扫描
+	for (i = min_y; i <= max_y; i++)
+	{
+		for (j = 0; j < t; j++)
+		{
+			//当前扫描线在某条边之间
+			if (pNET[j].ymin <= i && pNET[j].ymax >= i)
+			{
+				s.push(pNET[j].xmin);
+				//更新xmin坐标
+				pNET[j].xmin += pNET[j].dx;
+			} 
+		}
+		while (!s.empty())
+		{	//每两个一对,a,b均为扫描线上的x坐标
+			float a = s.top(); s.pop();
+			float b = s.top(); s.pop();
+			drawColor(a, b, i);
+		}
+	}
+}
+void display(void)
+{
+	glClear(GL_COLOR_BUFFER_BIT);//用当前背景色填充窗口，如果不写这句会残留之前的图像
+	glColor3f(0.0, 0.0, 1.0);;//设置所画点的颜色 rgb三色空间
+	glBegin(GL_POINTS);
+	float x0 = 250, y0 = 250;
+	DrawPolygon(x0,y0);
+	glEnd();
+	glFlush();//画图时候使用的begin end flush
+}
+int main(int argc, char* argv[])
+{
+	glutInit(&argc, argv);//初始化一个GLUT 1
+	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);//使用单个缓存且使用RBG三元素组成的颜色&&用来设定显示窗口的缓存和颜色模型2
+	glutInitWindowPosition(10,10 );//窗口位置 距离左多少 距离上多少3
+	glutInitWindowSize(800, 800);//初始化高度和高度的像素值4
+	glutCreateWindow("Polygon");//创建一个窗口并且命名
+	glutDisplayFunc(display);//所用函数是什么
+	init();//函数结尾的清零状态
+	glutMainLoop();//函数尾部
+	return 0;
+}
